@@ -1,353 +1,264 @@
-That's a fantastic choice! Building a Library Management System with JavaScript is perfect because you can create a complete, interactive application that runs right in the browser (using HTML and CSS for the interface, and JavaScript for the logic).
-Here is the complete code for a basic, browser-based Library Management System that uses JavaScript to manage books and localStorage to save the data, so it persists even after the user closes the browser.
-This solution is broken into three files: index.html, style.css, and script.js.
-1. index.html (The Structure)
-This file sets up the user interface with a form to add books and a table to display the book list.
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JS Library Management System</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <header>
-        <h1>📚 Simple Library Manager</h1>
-    </header>
+/*******************************************************
+ * Project Title: IBM-FE-Login
+ * Description: Single Page Application for Login system
+ * Author: (You can add your name here)
+ * Lines: ~230
+ *******************************************************/
 
-    <main>
-        <section class="add-book-section">
-            <h2>Add New Book</h2>
-            <form id="bookForm">
-                <input type="text" id="title" placeholder="Title" required>
-                <input type="text" id="author" placeholder="Author" required>
-                <input type="text" id="isbn" placeholder="ISBN (Unique ID)" required>
-                <button type="submit">Add Book</button>
-            </form>
-            <div id="message" class="message"></div>
-        </section>
+// ----------- App State and Elements -----------
+const appState = {
+  user: null,
+  currentPage: 'login',
+};
 
-        <section class="book-list-section">
-            <h2>Book Collection</h2>
-            <table id="bookTable">
-                <thead>
-                    <tr>
-                        <th>Title</th>
-                        <th>Author</th>
-                        <th>ISBN</th>
-                        <th>Status</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    </tbody>
-            </table>
-            <button id="clearAllBtn" class="clear-btn">Clear All Data</button>
-        </section>
-    </main>
+// ----------- Utility Functions -----------
+const $ = (selector) => document.querySelector(selector);
+const createEl = (tag, attrs = {}, children = []) => {
+  const el = document.createElement(tag);
+  Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+  children.forEach((c) =>
+    typeof c === 'string' ? el.appendChild(document.createTextNode(c)) : el.appendChild(c)
+  );
+  return el;
+};
 
-    <script src="script.js"></script>
-</body>
-</html>
-
-2. style.css (The Styling)
-This is simple CSS to make the application look decent and easy to read.
-body {
-    font-family: Arial, sans-serif;
-    background-color: #f4f4f9;
-    color: #333;
-    margin: 0;
-    padding: 0;
+function saveUser(user) {
+  localStorage.setItem('ibmUser', JSON.stringify(user));
 }
 
-header {
-    background-color: #007bff;
-    color: white;
-    padding: 20px;
-    text-align: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+function getUser() {
+  const data = localStorage.getItem('ibmUser');
+  return data ? JSON.parse(data) : null;
 }
 
-main {
-    max-width: 1000px;
-    margin: 20px auto;
-    padding: 20px;
-    background-color: white;
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+function clearUser() {
+  localStorage.removeItem('ibmUser');
 }
 
-.add-book-section, .book-list-section {
-    margin-bottom: 30px;
-    padding: 20px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
+// ----------- Pages (Templates) -----------
+
+function renderLoginPage() {
+  const container = createEl('div', { class: 'page login-page' }, [
+    createEl('h2', {}, ['IBM-FE Login']),
+    createEl('input', { id: 'username', placeholder: 'Username' }),
+    createEl('input', { id: 'password', type: 'password', placeholder: 'Password' }),
+    createEl('button', { id: 'loginBtn' }, ['Login']),
+    createEl('p', { id: 'error', class: 'error' }, []),
+  ]);
+
+  container.querySelector('#loginBtn').addEventListener('click', handleLogin);
+  return container;
 }
 
-#bookForm input, #bookForm button {
-    padding: 10px;
-    margin: 5px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+function renderDashboardPage() {
+  const user = appState.user;
+  const container = createEl('div', { class: 'page dashboard-page' }, [
+    createEl('h2', {}, [Welcome, ${user.username}]),
+    createEl('p', {}, [Role: ${user.role}]),
+    createEl('p', {}, [Last login: ${user.lastLogin}]),
+    createEl('button', { id: 'logoutBtn' }, ['Logout']),
+    createEl('div', { class: 'section' }, [
+      createEl('h3', {}, ['User Data']),
+      createEl('pre', { id: 'userData' }, [JSON.stringify(user, null, 2)]),
+    ]),
+  ]);
+
+  container.querySelector('#logoutBtn').addEventListener('click', handleLogout);
+  return container;
 }
 
-#bookForm button {
-    background-color: #28a745;
-    color: white;
-    cursor: pointer;
-    border: none;
+function render404Page() {
+  const container = createEl('div', { class: 'page not-found' }, [
+    createEl('h2', {}, ['404 - Page Not Found']),
+    createEl('button', { id: 'goHome' }, ['Go to Login']),
+  ]);
+
+  container.querySelector('#goHome').addEventListener('click', () => {
+    navigateTo('login');
+  });
+
+  return container;
 }
 
-#bookTable {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 15px;
-}
+// ----------- Authentication Logic -----------
 
-#bookTable th, #bookTable td {
-    border: 1px solid #ddd;
-    padding: 12px;
-    text-align: left;
-}
+const fakeDB = [
+  { username: 'admin', password: '1234', role: 'Administrator' },
+  { username: 'user', password: 'abcd', role: 'User' },
+];
 
-#bookTable th {
-    background-color: #f2f2f2;
-}
+function handleLogin() {
+  const username = $('#username').value.trim();
+  const password = $('#password').value.trim();
+  const errorBox = $('#error');
 
-.delete-btn, .status-btn {
-    padding: 6px 10px;
-    margin: 2px;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 0.9em;
-}
+  if (!username || !password) {
+    errorBox.textContent = 'Please fill all fields';
+    return;
+  }
 
-.delete-btn {
-    background-color: #dc3545;
-    color: white;
-}
-
-.status-btn.borrowed {
-    background-color: #ffc107;
-}
-
-.status-btn.available {
-    background-color: #17a2b8;
-    color: white;
-}
-
-.clear-btn {
-    background-color: #6c757d;
-    color: white;
-    padding: 10px 15px;
-    border: none;
-    border-radius: 4px;
-    margin-top: 20px;
-    cursor: pointer;
-}
-
-/* Status Message */
-.message {
-    padding: 10px;
-    margin-top: 10px;
-    border-radius: 4px;
-    background-color: #e2e3e5;
-    color: #000;
-    visibility: hidden;
-}
-
-.message.show {
-    visibility: visible;
-}
-
-3. script.js (The Logic)
-This file contains the core JavaScript logic, including the use of localStorage for data persistence.
-// A key for localStorage to store our books
-const STORAGE_KEY = 'libraryBooks';
-
-// Get DOM elements
-const bookForm = document.getElementById('bookForm');
-const bookTableBody = document.querySelector('#bookTable tbody');
-const clearAllBtn = document.getElementById('clearAllBtn');
-const messageDiv = document.getElementById('message');
-
-/**
- * Loads the books array from localStorage or returns an empty array if none exists.
- * @returns {Array} The array of book objects.
- */
-function loadBooks() {
-    const json = localStorage.getItem(STORAGE_KEY);
-    return json ? JSON.parse(json) : [];
-}
-
-/**
- * Saves the current array of books to localStorage.
- * @param {Array} books - The array of book objects to save.
- */
-function saveBooks(books) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(books));
-}
-
-/**
- * Displays a temporary message to the user.
- * @param {string} msg - The message text.
- * @param {boolean} isError - If true, style as an error.
- */
-function showMessage(msg, isError = false) {
-    messageDiv.textContent = msg;
-    messageDiv.className = isError ? 'message show error' : 'message show success';
-    
-    // Hide the message after 3 seconds
-    setTimeout(() => {
-        messageDiv.className = 'message';
-    }, 3000);
-}
-
-/**
- * Renders the entire book list table based on the books array.
- */
-function renderBooks() {
-    const books = loadBooks();
-    bookTableBody.innerHTML = ''; // Clear existing rows
-
-    if (books.length === 0) {
-        const row = bookTableBody.insertRow();
-        const cell = row.insertCell(0);
-        cell.colSpan = 5;
-        cell.textContent = 'The library is currently empty.';
-        cell.style.textAlign = 'center';
-        return;
-    }
-
-    books.forEach(book => {
-        const row = bookTableBody.insertRow();
-        
-        // 1. Title
-        row.insertCell(0).textContent = book.title;
-        
-        // 2. Author
-        row.insertCell(1).textContent = book.author;
-        
-        // 3. ISBN (Unique ID)
-        row.insertCell(2).textContent = book.isbn;
-        
-        // 4. Status Button (Borrow/Return)
-        const statusCell = row.insertCell(3);
-        const statusBtn = document.createElement('button');
-        statusBtn.textContent = book.isBorrowed ? 'Return' : 'Borrow';
-        statusBtn.className = book.isBorrowed ? 'status-btn borrowed' : 'status-btn available';
-        statusBtn.onclick = () => toggleStatus(book.isbn);
-        statusCell.appendChild(statusBtn);
-
-        // 5. Action Button (Delete)
-        const actionCell = row.insertCell(4);
-        const deleteBtn = document.createElement('button');
-        deleteBtn.textContent = 'Delete';
-        deleteBtn.className = 'delete-btn';
-        deleteBtn.onclick = () => deleteBook(book.isbn);
-        actionCell.appendChild(deleteBtn);
-    });
-}
-
-/**
- * Handles the submission of the Add Book form.
- * @param {Event} e - The form submission event.
- */
-function handleFormSubmit(e) {
-    e.preventDefault();
-
-    const title = document.getElementById('title').value.trim();
-    const author = document.getElementById('author').value.trim();
-    const isbn = document.getElementById('isbn').value.trim();
-
-    const books = loadBooks();
-
-    // Check for duplicate ISBN
-    if (books.some(book => book.isbn === isbn)) {
-        showMessage('Error: A book with this ISBN already exists!', true);
-        return;
-    }
-
-    // Create a new book object
-    const newBook = {
-        title: title,
-        author: author,
-        isbn: isbn,
-        isBorrowed: false // Default status
+  const user = fakeDB.find((u) => u.username === username && u.password === password);
+  if (user) {
+    const loginUser = {
+      username: user.username,
+      role: user.role,
+      lastLogin: new Date().toLocaleString(),
     };
-
-    books.push(newBook);
-    saveBooks(books);
-
-    showMessage(`Book "${title}" added successfully!`);
-    
-    // Re-render the table and clear the form
-    renderBooks();
-    bookForm.reset();
+    appState.user = loginUser;
+    saveUser(loginUser);
+    navigateTo('dashboard');
+  } else {
+    errorBox.textContent = 'Invalid credentials';
+  }
 }
 
-/**
- * Deletes a book from the array by its ISBN.
- * @param {string} isbn - The ISBN of the book to delete.
- */
-function deleteBook(isbn) {
-    if (!confirm('Are you sure you want to delete this book record?')) return;
-
-    let books = loadBooks();
-    const initialLength = books.length;
-    
-    // Filter out the book with the matching ISBN
-    books = books.filter(book => book.isbn !== isbn);
-    
-    if (books.length < initialLength) {
-        saveBooks(books);
-        renderBooks();
-        showMessage('Book deleted successfully!');
-    } else {
-        showMessage('Error: Book not found.', true);
-    }
+function handleLogout() {
+  clearUser();
+  appState.user = null;
+  navigateTo('login');
 }
 
-/**
- * Toggles the borrowed status of a book by its ISBN.
- * @param {string} isbn - The ISBN of the book to update.
- */
-function toggleStatus(isbn) {
-    let books = loadBooks();
-    const book = books.find(b => b.isbn === isbn);
+// ----------- Router System -----------
 
-    if (book) {
-        book.isBorrowed = !book.isBorrowed; // Toggle the status
-        saveBooks(books);
-        renderBooks();
-        const statusMsg = book.isBorrowed ? 'Book marked as BORROWED.' : 'Book marked as RETURNED.';
-        showMessage(statusMsg);
-    } else {
-        showMessage('Error: Book not found.', true);
-    }
+function navigateTo(page) {
+  appState.currentPage = page;
+  renderPage();
 }
 
-/**
- * Clears all data from localStorage.
- */
-function clearAllData() {
-    if (confirm('WARNING: This will permanently delete ALL book data. Are you sure?')) {
-        localStorage.removeItem(STORAGE_KEY);
-        renderBooks();
-        showMessage('All library data has been cleared!');
-    }
+function renderPage() {
+  const root = $('#app');
+  root.innerHTML = '';
+
+  let pageEl;
+  switch (appState.currentPage) {
+    case 'login':
+      pageEl = renderLoginPage();
+      break;
+    case 'dashboard':
+      pageEl = appState.user ? renderDashboardPage() : renderLoginPage();
+      break;
+    default:
+      pageEl = render404Page();
+      break;
+  }
+
+  root.appendChild(pageEl);
 }
 
-// --- Event Listeners and Initial Load ---
+// ----------- Init Function -----------
 
-// Listen for form submission to add a book
-bookForm.addEventListener('submit', handleFormSubmit);
+function initApp() {
+  const savedUser = getUser();
+  if (savedUser) {
+    appState.user = savedUser;
+    navigateTo('dashboard');
+  } else {
+    navigateTo('login');
+  }
+}
 
-// Listen for the clear all button
-clearAllBtn.addEventListener('click', clearAllData);
+// ----------- Theme & UI Enhancements -----------
 
-// Load and display books when the page first loads
-document.addEventListener('DOMContentLoaded', renderBooks);
+function addThemeToggle() {
+  const toggleBtn = createEl('button', { id: 'themeToggle' }, ['Toggle Theme']);
+  toggleBtn.addEventListener('click', () => {
+    document.body.classList.toggle('dark');
+    localStorage.setItem(
+      'ibmTheme',
+      document.body.classList.contains('dark') ? 'dark' : 'light'
+    );
+  });
+  document.body.appendChild(toggleBtn);
+}
 
+function applySavedTheme() {
+  const theme = localStorage.getItem('ibmTheme');
+  if (theme === 'dark') document.body.classList.add('dark');
+}
+
+// ----------- Loading Screen -----------
+function showLoader() {
+  const loader = createEl('div', { id: 'loader' }, ['Loading...']);
+  document.body.appendChild(loader);
+  setTimeout(() => {
+    loader.remove();
+  }, 800);
+}
+
+// ----------- Run the App -----------
+window.addEventListener('DOMContentLoaded', () => {
+  showLoader();
+  applySavedTheme();
+  addThemeToggle();
+
+  const root = createEl('div', { id: 'app' });
+  document.body.appendChild(root);
+  initApp();
+});
+
+// ----------- Styles (Optional Inline) -----------
+const style = document.createElement('style');
+style.textContent = `
+  body {
+    font-family: Arial, sans-serif;
+    background: #f3f3f3;
+    margin: 0;
+    padding: 40px;
+    transition: background 0.3s, color 0.3s;
+  }
+  body.dark {
+    background: #121212;
+    color: #f1f1f1;
+  }
+  #app {
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 20px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  }
+  body.dark #app {
+    background: #1e1e1e;
+  }
+  input {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    margin: 8px 0;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+  }
+  button {
+    padding: 10px 20px;
+    background: #0078d7;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  button:hover {
+    background: #005a9e;
+  }
+  .error {
+    color: red;
+    font-size: 14px;
+    margin-top: 8px;
+  }
+  #themeToggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+  }
+  #loader {
+    position: fixed;
+    top: 0; left: 0;
+    right: 0; bottom: 0;
+    background: rgba(255,255,255,0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+  }
+`;
+document.head.appendChild(style);
